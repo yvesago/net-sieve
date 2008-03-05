@@ -2,6 +2,54 @@ package NET::Sieve;
 use strict;
 use warnings;
 
+=head1 NAME
+
+NET::Sieve - implementation of managesieve protocol to manage sieve scripts
+
+=head1 SYNOPSIS
+
+  use NET::Sieve;
+
+  my $SieveServer = NET::Sieve->new (
+    server => 'imap.server.org',
+    user => 'user',
+    password => 'pass' ,
+    );
+
+  foreach my $script ( $ServerSieve->list() ) {
+    print $script->{name}." ".$script->{status}."\n";
+  };
+
+  my $name_script = 'test';
+
+  # read
+  print $SieveServer->get($name_script);
+
+  # write
+  my $test_script='
+  require "fileinto";
+  ## Place all these in the "Test" folder
+  if header :contains "Subject" "[Test]" {
+          fileinto "Test";
+  }
+  ';
+
+  # other
+  $SieveServer->put($name_script,$new_script);
+  $SieveServer->activate($name_script);
+  $SieveServer->deactivate();
+  $SieveServer->delete($name_script);
+
+
+=head1 DESCRIPTION
+
+Most of code come from the great Phil Pennock B<sieve-connect> command-line tool
+http://people.spodhuis.org/phil.pennock/software/
+
+=head1 USAGE
+
+=cut
+
 use Authen::SASL qw(Perl); # Need a way to ask which mechanism to send
 use Authen::SASL::Perl::EXTERNAL; # We munge inside its private stuff.
 use IO::Socket::INET6;
@@ -25,10 +73,15 @@ my %raw_capabilities;
 my %capa_dosplit = map {$_ => 1} qw( SASL SIEVE );
 my $DEBUGGING = 1;
 
+=head1 CONSTRUCTOR
+
 =head2 new
 
  Usage : 
-  my $SieveServer = NET::Sieve->new ( server => 'imap.server.org', user => 'user', password => 'pass' );
+  my $SieveServer = NET::Sieve->new ( 
+    server => 'imap.server.org', 
+    user => 'user', 
+    password => 'pass' );
  Returns :
   NET::Sieve object which contain current open socket 
  Argument :
@@ -316,6 +369,8 @@ sub DESTROY {
 
 #############
 # public methods
+
+=head1 METHODS
 
 =head2 sock
 
@@ -667,55 +722,6 @@ sub die_NOmsg
 
 
 #################### main pod documentation begin ###################
-
-=head1 NAME
-
-NET::Sieve - implementation of managesieve protocol to manage sieve scripts
-
-=head1 SYNOPSIS
-
-  use NET::Sieve;
-
-  my $SieveServer = NET::Sieve->new (
-    server => 'imap.server.org',
-    user => 'user',
-    password => 'pass' ,
-    );
-
-  foreach my $script ( $ServerSieve->list() ) {
-    print $script->{name}." ".$script->{status}."\n";
-  };
-
-  my $name_script = 'test';
-
-  # read
-
-  print $SieveServer->get($name_script);
-
-  # write
-
-  my $test_script='
-  require "fileinto";
-  # Place all these in the "Test" folder
-  if header :contains "Subject" "[Test]" {
-          fileinto "Test";
-  }
-  ';
-
-  $SieveServer->put($name_script,$new_script);
-
-  $SieveServer->activate($name_script);
-
-  $SieveServer->deactivate();
-
-=head1 DESCRIPTION
-
-Most of code come from the great Phil Pennock B<sieve-connect> command-line tool
-http://people.spodhuis.org/phil.pennock/software/
-
-=head1 USAGE
-
-
 
 =head1 BUGS
 
