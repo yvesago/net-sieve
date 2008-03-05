@@ -4,7 +4,6 @@ use warnings;
 
 use Authen::SASL qw(Perl); # Need a way to ask which mechanism to send
 use Authen::SASL::Perl::EXTERNAL; # We munge inside its private stuff.
-use Errno;
 use IO::Socket::INET6;
 use IO::Socket::SSL 0.97; # SSL_ca_path bogus before 0.97
 use MIME::Base64;
@@ -373,7 +372,7 @@ sub get
         $self->sget();
         while (/^$/) { $self->sget(); } # extra newline but only for GETSCRIPT?
         unless (/^OK((?:\s.*)?)$/) { 
-                die_NOmsg $_, "Script retrieval not successful, not saving";
+                die_NOmsg($_, "Script retrieval not successful, not saving");
         }
         $contentdata =~ s/^{\d+\+?}\r?\n?//m;
         
@@ -446,8 +445,7 @@ sub _sent { $_[0] = $_ unless defined $_[0]; _debug ">>> $_[0]"; }
 sub _received { $_[0] = $_ unless defined $_[0]; _debug "<<< $_[0]"; }
 
 # ######################################################################
-# minor private routines
-
+# minor public routines
 
 sub ssend
 {
@@ -550,18 +548,44 @@ sub die_NOmsg
 
 
 #################### main pod documentation begin ###################
-## Below is the stub of documentation for your module. 
-## You better edit it!
-
 
 =head1 NAME
 
-NET::Sieve - Module abstract (<= 44 characters) goes here
+NET::Sieve - implementation of managesieve protocol to manage sieve scripts
 
 =head1 SYNOPSIS
 
   use NET::Sieve;
-  blah blah blah
+  use NET::Sieve::Script;
+
+  my $SieveServer = NET::Sieve->new (
+    server => 'imap.server.org',
+    user => 'user',
+    password => 'pass' ,
+    );
+
+  my @list = @{$SieveServer->list()};
+  foreach my $script ( @list ) {
+    print $script->name." ".$script->status."\n";
+  };
+
+  # read
+  print $SieveServer->get('test');
+
+  # write
+  my $test_script='
+   require "fileinto";
+   # Place all these in the "Test" folder
+   if header :contains "Subject" "[Test]" {
+           fileinto "Test";
+   }
+  ';
+
+  my $new_script = new NET::Sieve::Script(name=>"test");
+  $new_script->raw($test_script);
+
+  $SieveServer->put($new_script);
+
 
 
 =head1 DESCRIPTION
