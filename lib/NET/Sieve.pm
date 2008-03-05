@@ -20,24 +20,6 @@ BEGIN {
 }
 
 
-#################### subroutine header begin ####################
-
-=head2 sample_function
-
- Usage     : How to use this function/method
- Purpose   : What it does
- Returns   : What it returns
- Argument  : What it wants to know
- Throws    : Exceptions and other anomolies
- Comment   : This is a sample subroutine header.
-           : It is polite to include more pod and fewer comments.
-
-See Also   : 
-
-=cut
-
-#################### subroutine header end ####################
-
 my %capa;
 my %raw_capabilities;
 my %capa_dosplit = map {$_ => 1} qw( SASL SIEVE );
@@ -324,6 +306,14 @@ if (defined $realm) {
 
     return $self;
 };
+
+# destructor
+sub DESTROY {
+  my $self = shift;
+
+  $self->sfinish();
+}
+
 #############
 # public methods
 
@@ -332,7 +322,7 @@ if (defined $realm) {
  Usage    : my $sock = $ServerSieve->sock();
  Return   : open socket
  Argument : nothing
- Comment  : access to socket
+ Purpose  : access to socket
 
 =cut
 
@@ -345,14 +335,12 @@ sub sock
 =head2 list
 
  Usage    : 
-  my @list = @{$ServerSieve->list()};
-
-  foreach my $script ( @list ) {
+  foreach my $script ( $ServerSieve->list() ) {
         print $script->{name}." ".$script->{status}."\n";
   };
  Return   : array of hash with names and status scripts for current user 
  Argument : nothing
- Comment  : list available scripts on server
+ Purpose  : list available scripts on server
 
 =cut
 
@@ -372,7 +360,7 @@ sub list
          $self->sget();
          }
 
-    return \@list_scripts;
+    return @list_scripts;
 }
 
 =head2 put
@@ -380,7 +368,7 @@ sub list
  Usage    : $ServerSieve->put($name,$script);
  Return   : 1 on success, 0 on missing name or script
  Argument : name, script 
- Comment  : put script on server
+ Purpose  : put script on server
 
 =cut
 
@@ -412,7 +400,7 @@ sub put
  Usage    : my $script = $ServerSieve->get($name);
  Return   : 0 on missing name, string with script on success
  Argument : name 
- Comment  : put script on server
+ Purpose  : put script on server
 
 =cut
 
@@ -430,7 +418,7 @@ sub get
         }
         if (/^OK((?:\s.*)?)$/) {
                 warn qq{Empty script "$name"?  Not saved.\n};
-                return;
+                return 0;
         }
         unless (/^{(\d+)}\r?$/m) {
                 die "QUIT:Failed to parse server response to GETSCRIPT";
@@ -445,6 +433,70 @@ sub get
         
     return $contentdata;
 }
+
+=head2 activate
+
+ Usage    : $ServerSieve->activate($name);
+ Return   : 0 on pb, 1 on success
+ Argument : name 
+ Purpose  : set named script active and switch other scripts to unactive
+
+=cut
+
+sub activate {
+    my $self = shift;
+    my $name = shift;
+
+    $self->ssend("SETACTIVE \"$name\"");
+    $self->sget();
+    unless (/^OK((?:\s.*)?)$/) {
+        warn "SETACTIVE($name) failed: $_\n";
+        return 0;
+    }
+
+    return 1;
+}
+
+=head2 deactivate
+
+ Usage    : $ServerSieve->deactivate();
+ Return   : activate response
+ Argument : nothing
+ Purpose  : stop sieve processing, deactivate all scripts
+
+=cut
+
+sub deactivate {
+    my $self = shift;
+    
+    return $self->activate("");
+}
+
+=head2 delete
+
+ Usage    : $ServerSieve->delete($name);
+ Return   : 0 on missing name, 1 on success
+ Argument : name 
+ Purpose  : delete script on server
+
+=cut
+
+sub delete {
+    my $self = shift;
+    my $name = shift;
+    
+    return 0 if (!$name);
+
+    $self->ssend("DELETESCRIPT \"$name\"");
+    $self->sget();
+    unless (/^OK((?:\s.*)?)$/) {
+        warn "DELETESCRIPT($name) failed: $_\n";
+        return 0;
+    }
+
+    return 1;
+}
+
 ###################
 # private methods
 #functions
@@ -593,7 +645,7 @@ sub closedie_NOmsg
         my $self = shift;
         my $sock = $self->{_sock};
         my $suffix = shift;
-        if (length $suffix) {
+        if (length($suffix)) {
                 $suffix = ':' . $suffix;
         } else {
                 $suffix = '.';
@@ -630,16 +682,18 @@ NET::Sieve - implementation of managesieve protocol to manage sieve scripts
     password => 'pass' ,
     );
 
-  my @list = @{$SieveServer->list()};
-  foreach my $script ( @list ) {
+  foreach my $script ( $ServerSieve->list() ) {
     print $script->{name}." ".$script->{status}."\n";
   };
 
   my $name_script = 'test';
+
   # read
+
   print $SieveServer->get($name_script);
 
   # write
+
   my $test_script='
   require "fileinto";
   # Place all these in the "Test" folder
@@ -650,16 +704,14 @@ NET::Sieve - implementation of managesieve protocol to manage sieve scripts
 
   $SieveServer->put($name_script,$new_script);
 
+  $SieveServer->activate($name_script);
 
+  $SieveServer->deactivate();
 
 =head1 DESCRIPTION
 
-Stub documentation for this module was created by ExtUtils::ModuleMaker.
-It looks like the author of the extension was negligent enough
-to leave the stub unedited.
-
-Blah blah blah.
-
+Most of code come from the great Phil Pennock B<sieve-connect> command-line tool
+http://people.spodhuis.org/phil.pennock/software/
 
 =head1 USAGE
 
