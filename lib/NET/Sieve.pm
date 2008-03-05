@@ -7,8 +7,6 @@ use Authen::SASL::Perl::EXTERNAL; # We munge inside its private stuff.
 use IO::Socket::INET6;
 use IO::Socket::SSL 0.97; # SSL_ca_path bogus before 0.97
 use MIME::Base64;
-use POSIX qw/ strftime /;
-use NET::Sieve::Script;
 
 BEGIN {
     use Exporter ();
@@ -45,23 +43,44 @@ my %raw_capabilities;
 my %capa_dosplit = map {$_ => 1} qw( SASL SIEVE );
 my $DEBUGGING = 1;
 
+=head2 new
+
+ Usage : 
+  my $SieveServer = NET::Sieve->new ( server => 'imap.server.org', user => 'user', password => 'pass' );
+ Returns :
+  NET::Sieve object which contain current open socket 
+ Argument :
+  server
+  port
+  user
+  password
+  net_domain
+  sslkeyfile
+  sslcertfile
+  autmech
+  passwordfd
+  ssl_verif
+  debug
+
+=cut
+
 sub new
 {
     my ($class, %param) = @_;
 
     my $self = bless ({}, ref ($class) || $class);
 
-my $server = $param{server};
+my $server = $param{server}||'localhost';
 my $port = $param{port}||'sieve(2000)';
-my $net_domain = $param{net_domain}||AF_UNSPEC;
 my $user = $param{user};
+my $prompt_for_password = $param{password};
+my $net_domain = $param{net_domain}||AF_UNSPEC;
 my $sslkeyfile =  $param{sslkeyfile};
 my $sslcertfile =  $param{sslcertfile};
 my $realm = $param{realm};
-my $authmech = $param{realm};
+my $authmech = $param{autmech};
 my $authzid = $param{authzid};
 my $passwordfd = $param{passwordfd};
-my $prompt_for_password = $param{password};
 my $ssl_verify = $param{ssl_verif} || '0x01';
 $DEBUGGING = $param{debug};
 
@@ -308,37 +327,76 @@ if (defined $realm) {
 #############
 # public methods
 
+=head2 sock
+
+ Usage    : my $sock = $ServerSieve->sock();
+ Return   : open socket
+ Argument : nothing
+ Comment  : access to socket
+
+=cut
+
+sub sock
+{
+    my $self = shift;
+    return $self->{_sock};
+}
+
+=head2 list
+
+ Usage    : 
+  my @list = @{$ServerSieve->list()};
+
+  foreach my $script ( @list ) {
+        print $script->{name}." ".$script->{status}."\n";
+  };
+ Return   : array of hash with names and status scripts for current user 
+ Argument : nothing
+ Comment  : list available scripts on server
+
+=cut
+
 sub list
 {
     my $self = shift;
-    my @list_script_names;
+    my @list_scripts;
     my $sock = $self->{_sock};
     $self->ssend("LISTSCRIPTS");
     $self->sget();
     while (/^\"/) {
-        my $line =  $_;
+         my $line =  $_;
          my $name = $1 if ($line =~ m/\"(.*?)\"/);
          my $status = ($line =~ m/ACTIVE/) ? 1 : 0;
-         my $script = NET::Sieve::Script->new(name => $name, status => $status);
-         push @list_script_names,$script;
+         my %script = (name => $name, status => $status);
+         push @list_scripts,\%script;
          $self->sget();
          }
 
-    return \@list_script_names;
+    return \@list_scripts;
 }
+
+=head2 put
+
+ Usage    : $ServerSieve->put($name,$script);
+ Return   : 1 on success, 0 on missing name or script
+ Argument : name, script 
+ Comment  : put script on server
+
+=cut
 
 sub put
 {
     my $self = shift;
+    my $name = shift;
     my $script = shift;
 
     my $sock = $self->{_sock};
 
-    my $size = length($script->raw);
-    return 0 if (!$size);
+    my $size = length($script);
+    return 0 if (!$size || !$name);
 
-    $self->ssend('PUTSCRIPT "'.$script->name.'" {'.$size.'+}');
-    $self->ssend('-noeol', $script->raw);
+    $self->ssend('PUTSCRIPT "'.$name.'" {'.$size.'+}');
+    $self->ssend('-noeol', $script);
     $self->ssend('');
     $self->sget();
 
@@ -348,13 +406,22 @@ sub put
 
     return 1;
 }
-#  my $sieve = ...
-#  my $script = NET::Sieve::Script->new(name => 'test');
-#     $script->raw ( $sieve->get('test') );
+
+=head2 get
+
+ Usage    : my $script = $ServerSieve->get($name);
+ Return   : 0 on missing name, string with script on success
+ Argument : name 
+ Comment  : put script on server
+
+=cut
+
 sub get
 {
     my $self = shift;
     my $name = shift;
+    
+    return 0 if (!$name);
 
     $self->ssend("GETSCRIPT \"$name\"");
     $self->sget();
@@ -491,7 +558,7 @@ sub sget
         if ($dochomp) {
                 chomp $l; $l =~ s/\s*$//;
         }
-        _received $l;
+        _received($l);
         if (defined wantarray) {
                 return $l;
         } else {
@@ -556,7 +623,6 @@ NET::Sieve - implementation of managesieve protocol to manage sieve scripts
 =head1 SYNOPSIS
 
   use NET::Sieve;
-  use NET::Sieve::Script;
 
   my $SieveServer = NET::Sieve->new (
     server => 'imap.server.org',
@@ -566,25 +632,23 @@ NET::Sieve - implementation of managesieve protocol to manage sieve scripts
 
   my @list = @{$SieveServer->list()};
   foreach my $script ( @list ) {
-    print $script->name." ".$script->status."\n";
+    print $script->{name}." ".$script->{status}."\n";
   };
 
+  my $name_script = 'test';
   # read
-  print $SieveServer->get('test');
+  print $SieveServer->get($name_script);
 
   # write
   my $test_script='
-   require "fileinto";
-   # Place all these in the "Test" folder
-   if header :contains "Subject" "[Test]" {
-           fileinto "Test";
-   }
+  require "fileinto";
+  # Place all these in the "Test" folder
+  if header :contains "Subject" "[Test]" {
+          fileinto "Test";
+  }
   ';
 
-  my $new_script = new NET::Sieve::Script(name=>"test");
-  $new_script->raw($test_script);
-
-  $SieveServer->put($new_script);
+  $SieveServer->put($name_script,$new_script);
 
 
 
