@@ -2,12 +2,12 @@
 
 # t/001_load.t - check module loading and create testing directory
 
-use Test::More tests => 9;
+use Test::More tests => 10;
 use strict;
 use warnings;
 use lib qw(lib);
 
-BEGIN { use_ok( 'NET::Sieve' ); }
+BEGIN { use_ok ( 'NET::Sieve' ); }
 
 my $sieve = NET::Sieve->new ( 
     server => 'imap.server.org', 
@@ -17,7 +17,7 @@ my $sieve = NET::Sieve->new (
 #    ssl_verify => 0x00
     );
 
-isa_ok ($sieve, 'NET::Sieve');
+isa_ok ( $sieve, 'NET::Sieve' );
 
 
 my $test_script='require "fileinto";
@@ -31,16 +31,16 @@ my $name_script = 'test';
 
 
 # write
-ok($sieve->put($name_script,$test_script),"put script");
+ok( $sieve->put($name_script,$test_script), "put script" );
 
 # read test script by name
 ok ( $sieve->get($name_script), "read script \"$name_script\"" );
 
-ok ( $sieve->activate($name_script), "activate script \"$name_script\"");
+ok ( $sieve->activate($name_script), "activate script \"$name_script\"" );
 
-ok ( $sieve->deactivate(), "deactivate sieve processing");
+ok ( $sieve->deactivate(), "deactivate sieve processing" );
 
-ok ( $sieve->activate($name_script), "activate script \"$name_script\"");
+ok ( $sieve->activate($name_script), "activate script \"$name_script\"" );
 
 my %Script;
 foreach my $script ( $sieve->list() ) {
@@ -48,7 +48,9 @@ foreach my $script ( $sieve->list() ) {
     $Script{$script->{name}} = $script->{status};
 };
 
-ok ($Script{$name_script},"\"$name_script\" script active");
+ok ( $Script{$name_script}, "\"$name_script\" script active" );
 
-ok($sieve->delete($name_script),"delete \"$name_script\" script");
+ok ( $sieve->delete($name_script), "delete \"$name_script\" script" );
+
+is ( $sieve->capabilities, "fileinto reject envelope vacation imapflags notify subaddress relational regex", "sieve script capabilities");
 

@@ -93,7 +93,6 @@ my $DEBUGGING = 1;
   sslkeyfile
   sslcertfile
   autmech
-  passwordfd
   ssl_verif
   debug
 
@@ -108,14 +107,13 @@ sub new
 my $server = $param{server}||'localhost';
 my $port = $param{port}||'sieve(2000)';
 my $user = $param{user};
-my $prompt_for_password = $param{password};
+my $password = $param{password};
 my $net_domain = $param{net_domain}||AF_UNSPEC;
 my $sslkeyfile =  $param{sslkeyfile};
 my $sslcertfile =  $param{sslcertfile};
 my $realm = $param{realm};
 my $authmech = $param{autmech};
 my $authzid = $param{authzid};
-my $passwordfd = $param{passwordfd};
 my $ssl_verify = $param{ssl_verif} || '0x01';
 $DEBUGGING = $param{debug};
 
@@ -199,6 +197,8 @@ $self->{_sock} = $sock;
 
 _parse_capabilities($sock);
 
+$self->{_capa} = $capa{SIEVE};
+
 if (exists $capa{STARTTLS}) {
         $self->ssend("STARTTLS");
         $self->sget();
@@ -240,16 +240,9 @@ if (defined $realm) {
         $authen_sasl_params{callback}{realm} = $realm;
 }
 
-if (defined $passwordfd) {
-        open(PASSHANDLE, "<&=", $passwordfd)
-                or die "Unable to open fd $passwordfd for reading: $!\n";
-        my @data = <PASSHANDLE>;
-        close(PASSHANDLE);
-        chomp $data[-1];
-        $authen_sasl_params{callback}{pass} = join '', @data;
-} else {
-        $authen_sasl_params{callback}{pass} = $prompt_for_password;
-}
+
+$authen_sasl_params{callback}{pass} = $password;
+
 
 $self->closedie("Do not have an authentication mechanism list\n")
         unless ref($capa{SASL}) eq 'ARRAY';
@@ -385,6 +378,21 @@ sub sock
 {
     my $self = shift;
     return $self->{_sock};
+}
+
+=head2 capabilities
+
+ Usage    : my $script_capa = $ServerSieve->capabilities();
+ Return   : string with white space separator
+ Argument : nothing
+ Purpose  : retrieve sieve script capabilities
+
+=cut
+
+sub capabilities
+{
+    my $self = shift;
+    return join ' ', @{$self->{_capa}};
 }
 
 =head2 list
