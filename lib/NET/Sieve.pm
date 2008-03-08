@@ -197,7 +197,7 @@ $self->{_sock} = $sock;
 
 _parse_capabilities($sock);
 
-$self->{_capa} = $capa{SIEVE};
+$self->{_capa} = $raw_capabilities{SIEVE};
 
 if (exists $capa{STARTTLS}) {
         $self->ssend("STARTTLS");
@@ -392,7 +392,7 @@ sub sock
 sub capabilities
 {
     my $self = shift;
-    return join ' ', @{$self->{_capa}};
+    return $self->{_capa};
 }
 
 =head2 list
