@@ -4,7 +4,7 @@ use warnings;
 
 =head1 NAME
 
-NET::Sieve - implementation of managesieve protocol to manage sieve scripts
+NET::Sieve - Implementation of managesieve protocol to manage sieve scripts
 
 =head1 SYNOPSIS
 
@@ -43,10 +43,13 @@ NET::Sieve - implementation of managesieve protocol to manage sieve scripts
 
 =head1 DESCRIPTION
 
-Most of code come from the great Phil Pennock B<sieve-connect> command-line tool
-http://people.spodhuis.org/phil.pennock/software/
+B<NET::Sieve> is a package for clients for the "MANAGESIEVE" protocol, which is an Internet Draft protocol for manipulation of "Sieve" scripts in a repository.  More simply, NET::Sieve lets you control your mail-filtering rule files on a mail server.
 
-=head1 USAGE
+B<NET::Sieve> supports the use of "TLS" via the "STARTTLS" command. B<NET::Sieve> open the connexion to the sieve server, methods allow to list all scripts, activate or deactivate scripts, read, delete or put scripts. 
+
+Most of code come from the great Phil Pennock B<sieve-connect> command-line tool L<http://people.spodhuis.org/phil.pennock/software/>.
+
+See L<NET::Sieve::Script> to manipulate Sieve scripts content.
 
 =cut
 
@@ -85,16 +88,18 @@ my $DEBUGGING = 1;
  Returns :
   NET::Sieve object which contain current open socket 
  Argument :
-  server
-  port
-  user
-  password
-  net_domain
-  sslkeyfile
-  sslcertfile
-  autmech
-  ssl_verif
-  debug
+  server      : default localhost
+  port        : default sieve(2000) 
+  user        : default logname or $ENV{USERNAME} or $ENV{LOGNAME}
+  password    :
+  net_domain  :
+  sslkeyfile  : default search in /etc/ssl/certs
+  sslcertfile : default search in /etc/ssl/certs
+  autmech     : to force a particular authentication mechanism
+  authzid     : request authorisation to act as the specified id
+  realm       : pass realm information to the authentication mechanism
+  ssl_verif   : default 0x01, set 0x00 to don't verify and allow self-signed cerificate
+  debug       : default 0, set 1 to have transmission logs
 
 =cut
 
@@ -633,7 +638,7 @@ sub ssend
 {
         my $self = shift;
         my $sock = $self->{_sock};
-        #my $sock = shift;
+        
         my $eol = "\r\n";
         if (defined $_[0] and $_[0] eq '-noeol') {
                 shift;
@@ -733,19 +738,22 @@ sub die_NOmsg
 
 =head1 BUGS
 
+I don't try plain text or client certificate authentification. 
 
+You can debug TLS connexion with openssl :
+   openssl s_client -connect your.server.org:2000 -tls1 -CApath /etc/apache/ssl.crt/somecrt.crt -starttls smtp
+
+See response in C<Verify return code:>
 
 =head1 SUPPORT
 
-
+Please report any bugs or feature requests to "bug-net-sieve at rt.cpan.org", or through the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=NET-Sieve>. I will be notified, and then you'll automatically be notified of progress on your bug as I make changes.
 
 =head1 AUTHOR
 
-    Yves
-    CPAN ID: YVESAGO
-    Univ Metz
-    agostini@univ-metz.fr
-    http://www.crium.univ-metz.fr
+Yves Agostini - Univ Metz <agostini@univ-metz.fr>
+
+L<http://www.crium.univ-metz.fr>
 
 =head1 COPYRIGHT
 
@@ -755,10 +763,11 @@ it and/or modify it under the same terms as Perl itself.
 The full text of the license can be found in the
 LICENSE file included with this module.
 
+B<sieve-connect> source code is under a BSD-style license and re-licensed for NET::Sieve with permission of the author.
 
 =head1 SEE ALSO
 
-perl(1).
+L<NET::Sieve::Script>
 
 =cut
 

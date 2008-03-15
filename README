@@ -1,15 +1,162 @@
-pod2text NET::Sieve.pm > README
+NAME
+    NET::Sieve - Implementation of managesieve protocol to manage sieve
+    scripts
 
-If this is still here it means the programmer was too lazy to create the readme file.
+SYNOPSIS
+      use NET::Sieve;
 
-You can create it now by using the command shown above from this directory.
+      my $SieveServer = NET::Sieve->new (
+        server => 'imap.server.org',
+        user => 'user',
+        password => 'pass' ,
+        );
 
-At the very least you should be able to use this set of instructions
-to install the module...
+      foreach my $script ( $ServerSieve->list() ) {
+        print $script->{name}." ".$script->{status}."\n";
+      };
 
-perl Makefile.PL
-make
-make test
-make install
+      my $name_script = 'test';
 
-If you are on a windows box you should use 'nmake' rather than 'make'.
+      # read
+      print $SieveServer->get($name_script);
+
+      # write
+      my $test_script='
+      require "fileinto";
+      ## Place all these in the "Test" folder
+      if header :contains "Subject" "[Test]" {
+              fileinto "Test";
+      }
+      ';
+
+      # other
+      $SieveServer->put($name_script,$new_script);
+      $SieveServer->activate($name_script);
+      $SieveServer->deactivate();
+      $SieveServer->delete($name_script);
+
+DESCRIPTION
+    NET::Sieve is a package for clients for the "MANAGESIEVE" protocol,
+    which is an Internet Draft protocol for manipulation of "Sieve" scripts
+    in a repository. More simply, NET::Sieve lets you control your
+    mail-filtering rule files on a mail server.
+
+    NET::Sieve supports the use of "TLS" via the "STARTTLS" command.
+    NET::Sieve open the connexion to the sieve server, methods allow to list
+    all scripts, activate or deactivate scripts, read, delete or put
+    scripts.
+
+    Most of code come from the great Phil Pennock sieve-connect command-line
+    tool <http://people.spodhuis.org/phil.pennock/software/>.
+
+    See NET::Sieve::Script to manipulate Sieve scripts content.
+
+CONSTRUCTOR
+  new
+     Usage : 
+      my $SieveServer = NET::Sieve->new ( 
+        server => 'imap.server.org', 
+        user => 'user', 
+        password => 'pass' );
+     Returns :
+      NET::Sieve object which contain current open socket 
+     Argument :
+      server      : default localhost
+      port        : default sieve(2000) 
+      user        : default logname or $ENV{USERNAME} or $ENV{LOGNAME}
+      password    :
+      net_domain  :
+      sslkeyfile  : default search in /etc/ssl/certs
+      sslcertfile : default search in /etc/ssl/certs
+      autmech     : to force a particular authentication mechanism
+      authzid     : request authorisation to act as the specified id
+      realm       : pass realm information to the authentication mechanism
+      ssl_verif   : default 0x01, set 0x00 to don't verify and allow self-signed cerificate
+      debug       : default 0, set 1 to have transmission logs
+
+METHODS
+  sock
+     Usage    : my $sock = $ServerSieve->sock();
+     Return   : open socket
+     Argument : nothing
+     Purpose  : access to socket
+
+  capabilities
+     Usage    : my $script_capa = $ServerSieve->capabilities();
+     Return   : string with white space separator
+     Argument : nothing
+     Purpose  : retrieve sieve script capabilities
+
+  list
+     Usage    : 
+      foreach my $script ( $ServerSieve->list() ) {
+            print $script->{name}." ".$script->{status}."\n";
+      };
+     Return   : array of hash with names and status scripts for current user 
+     Argument : nothing
+     Purpose  : list available scripts on server
+
+  put
+     Usage    : $ServerSieve->put($name,$script);
+     Return   : 1 on success, 0 on missing name or script
+     Argument : name, script 
+     Purpose  : put script on server
+
+  get
+     Usage    : my $script = $ServerSieve->get($name);
+     Return   : 0 on missing name, string with script on success
+     Argument : name 
+     Purpose  : put script on server
+
+  activate
+     Usage    : $ServerSieve->activate($name);
+     Return   : 0 on pb, 1 on success
+     Argument : name 
+     Purpose  : set named script active and switch other scripts to unactive
+
+  deactivate
+     Usage    : $ServerSieve->deactivate();
+     Return   : activate response
+     Argument : nothing
+     Purpose  : stop sieve processing, deactivate all scripts
+
+  delete
+     Usage    : $ServerSieve->delete($name);
+     Return   : 0 on missing name, 1 on success
+     Argument : name 
+     Purpose  : delete script on server
+
+BUGS
+    I don't try plain text or client certificate authentification.
+
+    You can debug TLS connexion with openssl : openssl s_client -connect
+    your.server.org:2000 -tls1 -CApath /etc/apache/ssl.crt/somecrt.crt
+    -starttls smtp
+
+    See response in "Verify return code:"
+
+SUPPORT
+    Please report any bugs or feature requests to "bug-net-sieve at
+    rt.cpan.org", or through the web interface at
+    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=NET-Sieve>. I will be
+    notified, and then you'll automatically be notified of progress on your
+    bug as I make changes.
+
+AUTHOR
+    Yves Agostini - Univ Metz <agostini@univ-metz.fr>
+
+    <http://www.crium.univ-metz.fr>
+
+COPYRIGHT
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
+    The full text of the license can be found in the LICENSE file included
+    with this module.
+
+    sieve-connect source code is under a BSD-style license and re-licensed
+    for NET::Sieve with permission of the author.
+
+SEE ALSO
+    NET::Sieve::Script
+
