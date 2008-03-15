@@ -9,6 +9,9 @@ use lib qw(lib);
 
 BEGIN { use_ok ( 'NET::Sieve' ); }
 
+SKIP: {
+	skip "set your own server, user, password to make tests", 9;
+
 my $sieve = NET::Sieve->new ( 
     server => 'imap.server.org', 
     user => 'user', 
@@ -54,3 +57,4 @@ ok ( $sieve->delete($name_script), "delete \"$name_script\" script" );
 
 is ( $sieve->capabilities, "fileinto reject envelope vacation imapflags notify subaddress relational regex", "sieve script capabilities");
 
+} #SKIP
