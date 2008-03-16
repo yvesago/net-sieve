@@ -1,7 +1,7 @@
 use inc::Module::Install;
 
-name		'NET-Sieve';
-all_from	'lib/NET/Sieve.pm';
+name		'Net-Sieve';
+all_from	'lib/Net/Sieve.pm';
 
 requires 'Authen::SASL';
 requires 'IO::Socket::INET6';

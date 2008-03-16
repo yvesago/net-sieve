@@ -7,12 +7,12 @@ use strict;
 use warnings;
 use lib qw(lib);
 
-BEGIN { use_ok ( 'NET::Sieve' ); }
+BEGIN { use_ok ( 'Net::Sieve' ); }
 
 SKIP: {
 	skip "set your own server, user, password to make tests", 9;
 
-my $sieve = NET::Sieve->new ( 
+my $sieve = Net::Sieve->new ( 
     server => 'imap.server.org', 
     user => 'user', 
     password => 'pass', 
@@ -20,7 +20,7 @@ my $sieve = NET::Sieve->new (
 #    ssl_verify => 0x00
     );
 
-isa_ok ( $sieve, 'NET::Sieve' );
+isa_ok ( $sieve, 'Net::Sieve' );
 
 
 my $test_script='require "fileinto";

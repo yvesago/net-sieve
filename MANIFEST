@@ -10,7 +10,7 @@ inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
-lib/NET/Sieve.pm
+lib/Net/Sieve.pm
 LICENSE
 Makefile.PL
 MANIFEST

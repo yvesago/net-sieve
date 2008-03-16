@@ -1,4 +1,4 @@
-TODO list for Perl module NET::Sieve
+TODO list for Perl module Net::Sieve
 
 - add doc in constructor, bugs, support
 - make package with Module::Install

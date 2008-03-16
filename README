@@ -1,11 +1,11 @@
 NAME
-    NET::Sieve - Implementation of managesieve protocol to manage sieve
+    Net::Sieve - Implementation of managesieve protocol to manage sieve
     scripts
 
 SYNOPSIS
-      use NET::Sieve;
+      use Net::Sieve;
 
-      my $SieveServer = NET::Sieve->new (
+      my $SieveServer = Net::Sieve->new (
         server => 'imap.server.org',
         user => 'user',
         password => 'pass' ,
@@ -36,30 +36,30 @@ SYNOPSIS
       $SieveServer->delete($name_script);
 
 DESCRIPTION
-    NET::Sieve is a package for clients for the "MANAGESIEVE" protocol,
+    Net::Sieve is a package for clients for the "MANAGESIEVE" protocol,
     which is an Internet Draft protocol for manipulation of "Sieve" scripts
-    in a repository. More simply, NET::Sieve lets you control your
+    in a repository. More simply, Net::Sieve lets you control your
     mail-filtering rule files on a mail server.
 
-    NET::Sieve supports the use of "TLS" via the "STARTTLS" command.
-    NET::Sieve open the connexion to the sieve server, methods allow to list
+    Net::Sieve supports the use of "TLS" via the "STARTTLS" command.
+    Net::Sieve open the connexion to the sieve server, methods allow to list
     all scripts, activate or deactivate scripts, read, delete or put
     scripts.
 
     Most of code come from the great Phil Pennock sieve-connect command-line
     tool <http://people.spodhuis.org/phil.pennock/software/>.
 
-    See NET::Sieve::Script to manipulate Sieve scripts content.
+    See Net::Sieve::Script to manipulate Sieve scripts content.
 
 CONSTRUCTOR
   new
      Usage : 
-      my $SieveServer = NET::Sieve->new ( 
+      my $SieveServer = Net::Sieve->new ( 
         server => 'imap.server.org', 
         user => 'user', 
         password => 'pass' );
      Returns :
-      NET::Sieve object which contain current open socket 
+      Net::Sieve object which contain current open socket 
      Argument :
       server      : default localhost
       port        : default sieve(2000) 
@@ -138,7 +138,7 @@ BUGS
 SUPPORT
     Please report any bugs or feature requests to "bug-net-sieve at
     rt.cpan.org", or through the web interface at
-    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=NET-Sieve>. I will be
+    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Net-Sieve>. I will be
     notified, and then you'll automatically be notified of progress on your
     bug as I make changes.
 
@@ -155,8 +155,8 @@ COPYRIGHT
     with this module.
 
     sieve-connect source code is under a BSD-style license and re-licensed
-    for NET::Sieve with permission of the author.
+    for Net::Sieve with permission of the author.
 
 SEE ALSO
-    NET::Sieve::Script
+    Net::Sieve::Script
 
