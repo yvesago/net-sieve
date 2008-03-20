@@ -62,7 +62,7 @@ use MIME::Base64;
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.01';
+    $VERSION     = '0.02';
     @ISA         = qw(Exporter);
     #Give a hoot don't pollute, do not export more than needed by default
     @EXPORT      = qw();
@@ -634,6 +634,14 @@ sub _received { $_[0] = $_ unless defined $_[0]; _debug "<<< $_[0]"; }
 # ######################################################################
 # minor public routines
 
+=head1 Minor public methods
+
+=head2 ssend
+
+ Usage : $self->ssend("GETSCRIPT \"$name\"");
+
+=cut
+
 sub ssend
 {
         my $self = shift;
@@ -652,6 +660,17 @@ sub ssend
                 _sent ( $l );
         }
 }
+
+=head2 sget
+
+ Usage: 
+    $self->sget();
+    unless (/^OK((?:\s.*)?)$/) {
+        warn "SETACTIVE($name) failed: $_\n";
+        return 0;
+    }
+
+=cut
 
 sub sget
 {
@@ -686,6 +705,12 @@ sub sget
         }
 }
 
+=head2 sfinish
+
+send LOGOUT
+
+=cut
+
 sub sfinish
 {
         my $self = shift;
@@ -698,6 +723,12 @@ sub sfinish
         $self->sget();
 }
 
+=head2 closedie
+
+send LOGOUT and die
+
+=cut
+
 sub closedie
 {
         my $self = shift;
@@ -707,6 +738,12 @@ sub closedie
         $! = $e;
         die @_;
 }
+
+=head2 closedie_NOmsg
+
+closedie whitout message
+
+=cut
 
 sub closedie_NOmsg
 {
@@ -721,6 +758,12 @@ sub closedie_NOmsg
         $self->closedie($_[0] . $suffix . "\n");
 }
 
+=head2 die_NOmsg
+
+die
+
+=cut
+
 sub die_NOmsg
 {
         my $suffix = shift;
@@ -733,8 +776,6 @@ sub die_NOmsg
         die $msg;
 }
 
-
-#################### main pod documentation begin ###################
 
 =head1 BUGS
 
