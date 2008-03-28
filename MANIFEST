@@ -17,4 +17,6 @@ MANIFEST
 META.yml
 README
 t/001_load.t
+t/pod.t
+t/pod_coverage.t
 Todo

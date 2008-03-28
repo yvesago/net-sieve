@@ -62,7 +62,7 @@ use MIME::Base64;
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.02';
+    $VERSION     = '0.03';
     @ISA         = qw(Exporter);
     #Give a hoot don't pollute, do not export more than needed by default
     @EXPORT      = qw();
@@ -74,6 +74,20 @@ BEGIN {
 my %capa;
 my %raw_capabilities;
 my %capa_dosplit = map {$_ => 1} qw( SASL SIEVE );
+# Key is permissably empty keyword, value if defined is closure to call with
+# capabilities after receiving complete list, for verifying permissability.
+# First param $sock, second \%capa, third \%raw_capabilities
+my %capa_permit_empty = (
+    # draft 7 onwards clarify that empty SASL is permitted, but is error
+    # in absense of STARTTLS
+    SASL    => sub {
+        return if exists $_[1]{STARTTLS};
+        # We die because there's no way to authenticate.
+        # Spec states that after STARTTLS SASL must be non-empty
+        closedie $_[0], "Empty SASL not permitted without STARTTLS\n";
+        },
+    SIEVE   => undef,
+);
 my $DEBUGGING = 1;
 
 =head1 CONSTRUCTOR
@@ -100,6 +114,7 @@ my $DEBUGGING = 1;
   realm       : pass realm information to the authentication mechanism
   ssl_verif   : default 0x01, set 0x00 to don't verify and allow self-signed cerificate
   debug       : default 0, set 1 to have transmission logs
+  dumptlsinfo : dump tls information
 
 =cut
 
@@ -120,11 +135,12 @@ my $realm = $param{realm};
 my $authmech = $param{autmech};
 my $authzid = $param{authzid};
 my $ssl_verify = $param{ssl_verif} || '0x01';
+my $dump_tls_information = $param{dumptlsinfo};
 $DEBUGGING = $param{debug};
 
 my %ssl_options = (
         SSL_version     => 'TLSv1',
-        SSL_cipher_list => 'ALL:!NULL:!LOW:!EXP:!ADH:@STRENGTH',
+        SSL_cipher_list => 'ALL:!aNULL:!NULL:!LOW:!EXP:!ADH:@STRENGTH',
         SSL_verify_mode => $ssl_verify,
         SSL_ca_path     => '/etc/ssl/certs',
 );
@@ -213,6 +229,17 @@ if (exists $capa{STARTTLS}) {
                 die "STARTTLS promotion failed: $e\n";
         };
         _debug("--- TLS activated here");
+        if ($dump_tls_information) {
+            print $sock->dump_peer_certificate();
+            if ($DEBUGGING and
+                exists $main::{"Net::"} and exists $main::{"Net::"}{"SSLeay::"}) {
+                # IO::Socket::SSL depends upon Net::SSLeay
+                # so this should be fairly safe, albeit messing
+                # around behind IO::Socket::SSL's back.
+                print STDERR Net::SSLeay::PEM_get_string_X509(
+                    $sock->peer_certificate());
+            }
+        }
         $forbid_clearauth = 0;
         # Cyrus sieve might send CAPABILITY after STARTTLS without being
         # prompted for it.  This breaks the command-response model.
@@ -343,13 +370,21 @@ if (defined $realm) {
                 # so if it says "okay", we don't keep trying.
                 my $final_auth = decode_base64($1);
                 my $valid = $authconversation->client_step($final_auth);
-                # Skip checking $authconversation->code() here because
+                # With released versions of Authen::SASL,
                 # Authen::SASL::Perl::DIGEST-MD5 module will complain at this
                 # final step:
                 #   Server did not provide required field(s): algorithm nonce
                 # which is bogus -- it's not required or expected.
+                # NB: at time of writing, Authen::SASL is 2.10 and
+                # Authen::SASL::Perl is 1.05; I've supplied a patch.
+                if ($authconversation->code()) {
+                    my $emsg = $authconversation->error();
+                    if ($Authen::SASL::Perl::VERSION > 1.05) {
+                        $self->closedie("SASL Error: $emsg\n");
+                    }
+                }
                 if (defined $valid and length $valid) {
-                        $self->closedie("Server failed final verification");
+                        $self->closedie("Server failed final verification [$valid]");
                 }
         }
 
@@ -488,7 +523,7 @@ sub get
                 warn qq{Empty script "$name"?  Not saved.\n};
                 return 0;
         }
-        unless (/^{(\d+)}\r?$/m) {
+        unless (/^{(\d+)\+?}\r?$/m) {
                 die "QUIT:Failed to parse server response to GETSCRIPT";
         }
         my $contentdata = $_;
@@ -576,15 +611,37 @@ sub _parse_capabilities
         my $external_first = 0;
         $external_first = $_{external_first} if exists $_{external_first};
 
+        my @double_checks;
         %raw_capabilities = ();
         %capa = ();
         while (<$sock>) {
                 chomp; s/\s*$//;
                 _received();
-                if (/^OK$/) {
+                if (/^OK\b/) {
                         last unless exists $_{until_see_no};
-                } elsif (/^\"([^"]+)\"\s+\"(.+)\"$/) {
-                        my ($k, $v) = ($1, $2);
+                } elsif (/^\"([^"]+)\"\s+\"(.*)\"$/) {
+                        my ($k, $v) = (uc($1), $2);
+                        unless (length $v) {
+                            unless (exists $capa_permit_empty{$k}) {
+                                warn "Empty \"$k\" capability spec not permitted: $_\n";
+                                # Don't keep the advertised capability unless
+                                # it has some value which is needed.  Eg,
+                                # NOTIFY must list a mechanism to be useful.
+                                next;
+                            }
+                            if (defined $capa_permit_empty{$k}) {
+                                push @double_checks, $capa_permit_empty{$k};
+                            }
+                        }
+                        if (exists $capa{$k}) {
+                            # won't catch if the first instance was ignored for an
+                            # impermissably empty value; by this point though we
+                            # would already have issued a warning and the server
+                            # is so fubar that it's not worth worrying about.
+                            warn "Protocol violation.  Already seen capability \"$k\".\n" .
+                                "Ignoring second instance and continuing.\n";
+                            next;
+                        }
                         $raw_capabilities{$k} = $v;
                         $capa{$k} = $v;
                         if (exists $capa_dosplit{$k}) {
@@ -593,13 +650,34 @@ sub _parse_capabilities
                 } elsif (/^\"([^"]+)\"$/) {
                         $raw_capabilities{$1} = '';
                         $capa{$1} = 1;
-                } elsif (/^NO/) { 
-                        last if exists $_{until_see_no};
+                } elsif (/^NO\b/) { 
+                        return if exists $_{until_see_no};
                         warn "Unhandled server line: $_\n"
+                } elsif (/^BYE\b(.*)/) {
+                    #closedie_NOmsg( $1,
+                    die (
+                        "Server said BYE when we expected capabilities.\n");
                 } else {
                         warn "Unhandled server line: $_\n"
                 }
         };
+
+        die ( "Server does not return SIEVE capability, unable to continue.\n" )
+            unless exists $capa{SIEVE};
+        warn "Server does not return IMPLEMENTATION capability.\n"
+            unless exists $capa{IMPLEMENTATION};
+
+        foreach my $check_sub (@double_checks) {
+            $check_sub->($sock, \%capa, \%raw_capabilities);
+        }
+
+        if (grep {lc($_) eq 'enotify'} @{$capa{SIEVE}}) {
+            unless (exists $capa{NOTIFY}) {
+                warn "enotify extension present, NOTIFY capability missing\n" .
+                    "This violates MANAGESIEVE specification.\n" .
+                    "Continuing anyway.\n";
+            }
+        }
 
         if (exists $capa{SASL} and $external_first
                         and grep {uc($_) eq 'EXTERNAL'} @{$capa{SASL}}) {
@@ -628,8 +706,17 @@ sub _debug
         print STDERR "$_[0]\n";
 }
 
-sub _sent { $_[0] = $_ unless defined $_[0]; _debug ">>> $_[0]"; }
-sub _received { $_[0] = $_ unless defined $_[0]; _debug "<<< $_[0]"; }
+sub _diag {
+    my ($prefix, $data) = @_;
+    $data =~ s/\r/\\r/g; $data =~ s/\n/\\n/g; $data =~ s/\t/\\t/g;
+    $data =~ s/([^[:graph:] ])/sprintf("%%%02X", ord $1)/eg;
+    _debug "$prefix $data";
+}
+sub _sent { my $t = defined $_[0] ? $_[0] : $_; _diag('>>>', $t) }
+sub _received { my $t = defined $_[0] ? $_[0] : $_; _diag('<<<', $t) }
+
+#sub _sent { $_[0] = $_ unless defined $_[0]; _debug ">>> $_[0]"; }
+#sub _received { $_[0] = $_ unless defined $_[0]; _debug "<<< $_[0]"; }
 
 # ######################################################################
 # minor public routines
@@ -657,7 +744,7 @@ sub ssend
 # yes, the _debug output can have extra blank lines if supplied -noeol because
 # they're already pre_sent.  Rather than mess around to tidy it up, I'm leaving
 # it because it's _debug output, not UI or protocol text.
-                _sent ( $l );
+                _sent ( "$l$eol" );
         }
 }
 
@@ -680,6 +767,10 @@ sub sget
         $dochomp = 0 if defined $_[0] and $_[0] eq '-nochomp';
         my $l;
         $l = $sock->getline();
+        unless (defined $l) {
+            _debug "... no line read, connection dropped?";
+            die "Connection dropped unexpectedly when trying to read.\n";
+        }
         if ($l =~ /{(\d+)\+?}\s*\n?\z/) {
                 _debug("... literal string response, length $1");
                 my $len = $1;
