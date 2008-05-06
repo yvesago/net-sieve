@@ -1,5 +1,8 @@
 Revision history for Perl module Net::Sieve
 
+0.05 Tue, 06 May 2008 22:12:27 +0200
+    * add clear copyright
+
 0.04 Tue, 29 Apr 2008 10:29:14 +0200
     - backport from sieve-connect-0.57
     * dep with Authen::SASL 2.11 first version with non-broken DIGEST-MD5
