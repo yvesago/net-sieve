@@ -69,7 +69,7 @@ use MIME::Base64;
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.05';
+    $VERSION     = '0.06';
     @ISA         = qw(Exporter);
     #Give a hoot don't pollute, do not export more than needed by default
     @EXPORT      = qw();
@@ -256,10 +256,17 @@ if (exists $capa{STARTTLS}) {
         # of "wait a while, see if anything comes along; if not, send
         # CAPABILITY ourselves".  So, I break protocol by sending the
         # non-existent command NOOP, then scan for the resulting NO.
-        $self->ssend("NOOP");
-        _parse_capabilities($sock,
-                until_see_no    => 1,
-                external_first => $prioritise_auth_external);
+       if ($capa{IMPLEMENTATION} =~ /dovecot/i) {
+           _parse_capabilities($sock,
+                   until_see_no   => 0,
+                   external_first => $prioritise_auth_external);
+       } 
+       else {
+           $self->ssend("NOOP");
+           _parse_capabilities($sock,
+                   until_see_no   => 1,
+                   external_first => $prioritise_auth_external);
+       }
         unless (scalar keys %capa) {
                 $self->ssend("CAPABILITY");
                 _parse_capabilities($sock,
@@ -367,7 +374,7 @@ if (defined $realm) {
         }
 
         if (/^NO((?:\s.*)?)$/) {
-                $self->closedie_NOmsg($1, "Authentication refused by server");
+                $self->closedie_NOmsg("Authentication refused by server");
         }
         if (/^OK\s+\(SASL\s+\"([^"]+)\"\)$/) {
                 # This _should_ be pre_sent with server-verification steps which
@@ -628,7 +635,7 @@ sub _parse_capabilities
                 chomp; s/\s*$//;
                 _received();
                 if (/^OK\b/) {
-                        last unless exists $_{until_see_no};
+                        last unless $_{until_see_no};
                 } elsif (/^\"([^"]+)\"\s+\"(.*)\"$/) {
                         my ($k, $v) = (uc($1), $2);
                         unless (length $v) {
@@ -851,12 +858,8 @@ sub closedie_NOmsg
         my $self = shift;
         my $sock = $self->{_sock};
         my $suffix = shift;
-        if (length($suffix)) {
-                $suffix = ':' . $suffix;
-        } else {
-                $suffix = '.';
-        }
-        $self->closedie($_[0] . $suffix . "\n");
+        $self->sfinish();
+	die $suffix;
 }
 
 =head2 die_NOmsg
