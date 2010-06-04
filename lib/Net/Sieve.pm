@@ -902,7 +902,7 @@ L<http://www.crium.univ-metz.fr>
 
 =head1 COPYRIGHT
 
-Copyright 2008 Yves Agostini - <agostini@univ-metz.fr>
+Copyright 2008-2010 Yves Agostini - <agostini@univ-metz.fr>
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
