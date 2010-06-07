@@ -69,7 +69,7 @@ use MIME::Base64;
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.06';
+    $VERSION     = '0.07';
     @ISA         = qw(Exporter);
     #Give a hoot don't pollute, do not export more than needed by default
     @EXPORT      = qw();
@@ -883,7 +883,7 @@ sub die_NOmsg
 
 =head1 BUGS
 
-I don't try plain text or client certificate authentification. 
+I don't try plain text or client certificate authentication. 
 
 You can debug TLS connexion with openssl :
    openssl s_client -connect your.server.org:2000 -tls1 -CApath /etc/apache/ssl.crt/somecrt.crt -starttls smtp

@@ -1,5 +1,8 @@
 Revision history for Perl module Net::Sieve
 
+0.07 (next release)
+    * fix spelling error thx to Ansgar Burchardt [rt.cpan.org #58154]
+
 0.06 Fri, 04 Jun 2010 15:28:17 +0200
     * patch for new dovecot servers thx to Heiko Schlittermann
     * better connection closes on bad password
