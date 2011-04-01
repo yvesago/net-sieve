@@ -73,6 +73,7 @@ CONSTRUCTOR
       realm       : pass realm information to the authentication mechanism
       ssl_verif   : default 0x01, set 0x00 to don't verify and allow self-signed cerificate
       debug       : default 0, set 1 to have transmission logs
+      dumptlsinfo : dump tls information
 
 METHODS
   sock
@@ -126,8 +127,32 @@ METHODS
      Argument : name 
      Purpose  : delete script on server
 
+Minor public methods
+  ssend
+     Usage : $self->ssend("GETSCRIPT \"$name\"");
+
+  sget
+     Usage: 
+        $self->sget();
+        unless (/^OK((?:\s.*)?)$/) {
+            warn "SETACTIVE($name) failed: $_\n";
+            return 0;
+        }
+
+  sfinish
+    send LOGOUT
+
+  closedie
+    send LOGOUT and die
+
+  closedie_NOmsg
+    closedie whitout message
+
+  die_NOmsg
+    die
+
 BUGS
-    I don't try plain text or client certificate authentification.
+    I don't try plain text or client certificate authentication.
 
     You can debug TLS connexion with openssl : openssl s_client -connect
     your.server.org:2000 -tls1 -CApath /etc/apache/ssl.crt/somecrt.crt
@@ -148,6 +173,8 @@ AUTHOR
     <http://www.crium.univ-metz.fr>
 
 COPYRIGHT
+    Copyright 2008-2011 Yves Agostini - <agostini@univ-metz.fr>
+
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
 

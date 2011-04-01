@@ -2,7 +2,7 @@
 
 # t/001_load.t - check module loading and create testing directory
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 use strict;
 use warnings;
 use lib qw(lib);
@@ -10,7 +10,7 @@ use lib qw(lib);
 BEGIN { use_ok ( 'Net::Sieve' ); }
 
 SKIP: {
-	skip "set your own server, user, password to make tests", 9;
+	skip "set your own server, user, password to make tests", 10;
 
 my $sieve = Net::Sieve->new ( 
     server => 'imap.server.org', 
@@ -56,5 +56,7 @@ ok ( $Script{$name_script}, "\"$name_script\" script active" );
 ok ( $sieve->delete($name_script), "delete \"$name_script\" script" );
 
 is ( $sieve->capabilities, "fileinto reject envelope vacation imapflags notify subaddress relational regex", "sieve script capabilities");
+
+ok($sieve->sfinish(),"test end connection");
 
 } #SKIP

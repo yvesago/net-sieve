@@ -1,6 +1,7 @@
 Revision history for Perl module Net::Sieve
 
-0.07 (next release)
+0.07 Fri, 01 Apr 2011 10:34:19 +0200
+    * fix connection closes thx to Klaus-Dieter Krannich [rt.cpan.org #67136]
     * fix spelling error thx to Ansgar Burchardt [rt.cpan.org #58154]
 
 0.06 Fri, 04 Jun 2010 15:28:17 +0200

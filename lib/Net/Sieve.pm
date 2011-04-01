@@ -414,7 +414,7 @@ if (defined $realm) {
 sub DESTROY {
   my $self = shift;
 
-  $self->sfinish();
+  $self->sfinish() if $self->{_sock};
 }
 
 #############
@@ -824,11 +824,15 @@ sub sfinish
         my $self = shift;
         my $sock = $self->{_sock};
         if (defined $_[0]) {
-                $self->ssend($sock, $_[0]);
+                $self->ssend($_[0]);
                 $self->sget();
         }
-        $self->ssend($sock, "LOGOUT");
+        $self->ssend("LOGOUT");
         $self->sget();
+        if (/^OK/) {
+            undef $self->{_sock};
+            return 1;
+        };
 }
 
 =head2 closedie
@@ -902,7 +906,7 @@ L<http://www.crium.univ-metz.fr>
 
 =head1 COPYRIGHT
 
-Copyright 2008-2010 Yves Agostini - <agostini@univ-metz.fr>
+Copyright 2008-2011 Yves Agostini - <agostini@univ-metz.fr>
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
