@@ -16,7 +16,7 @@ Net::Sieve - Implementation of managesieve protocol to manage sieve scripts
     password => 'pass' ,
     );
 
-  foreach my $script ( $ServerSieve->list() ) {
+  foreach my $script ( $SieveServer->list() ) {
     print $script->{name}." ".$script->{status}."\n";
   };
 
@@ -69,7 +69,7 @@ use MIME::Base64;
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.07';
+    $VERSION     = '0.08';
     @ISA         = qw(Exporter);
     #Give a hoot don't pollute, do not export more than needed by default
     @EXPORT      = qw();
