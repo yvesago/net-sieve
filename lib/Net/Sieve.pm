@@ -69,7 +69,7 @@ use MIME::Base64;
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.08';
+    $VERSION     = '0.09';
     @ISA         = qw(Exporter);
     #Give a hoot don't pollute, do not export more than needed by default
     @EXPORT      = qw();
@@ -132,7 +132,7 @@ sub new
     my $self = bless ({}, ref ($class) || $class);
 
 my $server = $param{server}||'localhost';
-my $port = $param{port}||'sieve(2000)';
+my $port = $param{port}||'2000';
 my $user = $param{user};
 my $password = $param{password};
 my $net_domain = $param{net_domain}||AF_UNSPEC;
@@ -906,7 +906,7 @@ L<http://www.crium.univ-metz.fr>
 
 =head1 COPYRIGHT
 
-Copyright 2008-2011 Yves Agostini - <agostini@univ-metz.fr>
+Copyright 2008-2012 Yves Agostini - <yvesago@cpan.org>
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
