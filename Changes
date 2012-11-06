@@ -1,8 +1,14 @@
 Revision history for Perl module Net::Sieve
 
+0.10 Tue, 06 Nov 2012 16:25:41 +0100
+    * merge most of sieve-connect-0.83 (missing DNS SRV records and)
+    * add example
+    * fix ssl_verify and notssl_verify
+
 0.09 Wed, 22 Feb 2012 09:04:08 +0100
     * set default port to 2000 instead of 'sieve(2000)' 
     workaround to respect rfc5804
+    * update copyright year and author mail
 
 0.08 Tue, 13 Dec 2011 17:32:16 +0100
     * typo in doc, thx to Federico Midaglia

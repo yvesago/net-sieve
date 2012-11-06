@@ -69,7 +69,7 @@ use MIME::Base64;
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.09';
+    $VERSION     = '0.10';
     @ISA         = qw(Exporter);
     #Give a hoot don't pollute, do not export more than needed by default
     @EXPORT      = qw();
@@ -110,7 +110,7 @@ my $DEBUGGING = 1;
   Net::Sieve object which contain current open socket 
  Argument :
   server      : default localhost
-  port        : default sieve(2000) 
+  port        : default 2000 
   user        : default logname or $ENV{USERNAME} or $ENV{LOGNAME}
   password    :
   net_domain  :
@@ -120,6 +120,7 @@ my $DEBUGGING = 1;
   authzid     : request authorisation to act as the specified id
   realm       : pass realm information to the authentication mechanism
   ssl_verif   : default 0x01, set 0x00 to don't verify and allow self-signed cerificate
+  notssl_verif: default 0x00, set 0x01 to don't verify and allow self-signed cerificate
   debug       : default 0, set 1 to have transmission logs
   dumptlsinfo : dump tls information
 
@@ -141,12 +142,17 @@ my $sslcertfile =  $param{sslcertfile};
 my $realm = $param{realm};
 my $authmech = $param{autmech};
 my $authzid = $param{authzid};
-my $ssl_verify = $param{ssl_verif} || '0x01';
+my $ssl_verify = 0x01;
+   $ssl_verify = 0x01 if $param{ssl_verify};
+   $ssl_verify = 0x00 if $param{ssl_verify} eq '0x00';
+   $ssl_verify = 0x00 if $param{notssl_verify};
 my $dump_tls_information = $param{dumptlsinfo};
 $DEBUGGING = $param{debug};
 
+
+
 my %ssl_options = (
-        SSL_version     => 'TLSv1',
+        SSL_version     => 'SSLv23:!SSLv2:!SSLv3',
         SSL_cipher_list => 'ALL:!aNULL:!NULL:!LOW:!EXP:!ADH:@STRENGTH',
         SSL_verify_mode => $ssl_verify,
         SSL_ca_path     => '/etc/ssl/certs',
@@ -223,14 +229,14 @@ _debug("connection: remote host address is @{[$sock->peerhost()]}");
 
 $self->{_sock} = $sock;
 
-_parse_capabilities($sock);
+$self->_parse_capabilities();
 
 $self->{_capa} = $raw_capabilities{SIEVE};
 
 if (exists $capa{STARTTLS}) {
         $self->ssend("STARTTLS");
         $self->sget();
-        die "STARTTLS request rejected: $_\n" unless /^OK\s+\"/;
+        die "STARTTLS request rejected: $_\n" unless /^OK\b/;
         IO::Socket::SSL->start_SSL($sock, %ssl_options) or do {
                 my $e = IO::Socket::SSL::errstr();
                 die "STARTTLS promotion failed: $e\n";
@@ -254,22 +260,47 @@ if (exists $capa{STARTTLS}) {
         # that will break if the next data is delayed (race condition).
         # There is no protocol-compliant method to determine this, short
         # of "wait a while, see if anything comes along; if not, send
-        # CAPABILITY ourselves".  So, I break protocol by sending the
+        # CAPABILITY ourselves".  So, I broke protocol by sending the
         # non-existent command NOOP, then scan for the resulting NO.
-       if ($capa{IMPLEMENTATION} =~ /dovecot/i) {
-           _parse_capabilities($sock,
-                   until_see_no   => 0,
+        # This at least is stably deterministic. However, from draft 10
+        # onwards, NOOP is a registered available extension which returns
+        # OK.
+
+        # New problem: again, Cyrus timsieved. As of 2.3.13, it drops the
+        # connection for an unknown command instead of returning NO. And
+        # logs "Lost connection to client -- exiting" which is an interesting
+        # way of saying "we dropped the connection". At this point, I give up
+        # on protocol-deterministic checks and fall back to version checking.
+        # Alas, Cyrus 2.2.x is still widely deployed because 2.3.x is the
+        # development series and 2.2.x is officially the stable series.
+        # This means that if they don't support NOOP by 2.3.14, I have to
+        # figure out how to decide what is safe and backtrack which version
+        # precisely was the first to send the capability response correctly.
+        my $use_noop = 1;
+        if (exists $capa{"IMPLEMENTATION"} and
+          $capa{"IMPLEMENTATION"} =~ /^Cyrus timsieved v2\.3\.(\d+)\z/ and
+          $1 >= 13) {
+          debug("--- Cyrus drops connection with dubious log msg if send NOOP, skip that");
+          $use_noop = 0;
+          }
+
+       if ($use_noop) {
+        my $noop_tag = "STARTTLS-RESYNC-CAPA";
+           $self->ssend(qq{NOOP "$noop_tag"});
+       #if ($capa{IMPLEMENTATION} =~ /dovecot/i) {
+           $self->_parse_capabilities(
+                    sent_a_noop => $noop_tag,
+       #            until_see_no   => 0,
                    external_first => $prioritise_auth_external);
        } 
        else {
-           $self->ssend("NOOP");
-           _parse_capabilities($sock,
-                   until_see_no   => 1,
+           $self->_parse_capabilities(
+           #        until_see_no   => 1,
                    external_first => $prioritise_auth_external);
        }
         unless (scalar keys %capa) {
                 $self->ssend("CAPABILITY");
-                _parse_capabilities($sock,
+                $self->_parse_capabilities(
                         external_first => $prioritise_auth_external);
         }
 } elsif ($forbid_clearchan) {
@@ -623,7 +654,8 @@ sub delete {
 
 sub _parse_capabilities
 {
-        my $sock = shift;
+        my $self = shift;
+        my $sock = $self->{_sock};
         local %_ = @_;
         my $external_first = 0;
         $external_first = $_{external_first} if exists $_{external_first};
@@ -633,9 +665,30 @@ sub _parse_capabilities
         %capa = ();
         while (<$sock>) {
                 chomp; s/\s*$//;
-                _received();
+                _received() unless /^OK\b/;
                 if (/^OK\b/) {
-                        last unless $_{until_see_no};
+                        $self->sget('-firstline', $_);
+                        last unless exists $_{sent_a_noop};
+                        # See large comment below in STARTTLS explaining the
+                        # resync problem to understand why this is here.
+                        my $end_tag = $_{sent_a_noop};
+                        unless (defined $end_tag and length $end_tag) {
+                            # Default tag in absense of client-specified
+                            # tag MUST be NOOP (2.11.2. NOOP Command)
+                            $self->closedie("Internal error: sent_a_noop without tag\n");
+                        }
+                        # Play crude, just look for the tag anywhere in the
+                        # response, honouring only word boundaries. It's our
+                        # responsibility to make the tag long enough that this
+                        # works without tokenising.
+                        if ($_ =~ m/\b\Q${end_tag}\E\b/) {
+                            return;
+                        }
+                        # Okay, that's the "server understands NOOP" case, for
+                        # which the server should have advertised the
+                        # capability prior to TLS (and so subject to
+                        # tampering); we play fast and loose, so have to cover
+                        # the NO case below too.
                 } elsif (/^\"([^"]+)\"\s+\"(.*)\"$/) {
                         my ($k, $v) = (uc($1), $2);
                         unless (length $v) {
@@ -668,7 +721,8 @@ sub _parse_capabilities
                         $raw_capabilities{$1} = '';
                         $capa{$1} = 1;
                 } elsif (/^NO\b/) { 
-                        return if exists $_{until_see_no};
+                        #return if exists $_{until_see_no};
+                        return if exists $_{sent_a_noop};
                         warn "Unhandled server line: $_\n"
                 } elsif (/^BYE\b(.*)/) {
                     #closedie_NOmsg( $1,
@@ -779,11 +833,23 @@ sub ssend
 sub sget
 {
         my $self = shift;
+        my $l = undef;
         my $sock = $self->{_sock};
         my $dochomp = 1;
-        $dochomp = 0 if defined $_[0] and $_[0] eq '-nochomp';
-        my $l;
-        $l = $sock->getline();
+        while (@_) {
+            my $t = shift;
+            next unless defined $t;
+            if ($t eq '-nochomp') { $dochomp = 0; next; }
+            if ($t eq '-firstline') {
+                die "Missing sget -firstline parameter"
+                unless defined $_[0];
+                $l = $_[0];
+                shift;
+                next;
+            }
+            die "Unknown sget parameter [$t]";
+        }
+        $l = $sock->getline() unless defined $l;
         unless (defined $l) {
             _debug "... no line read, connection dropped?";
             die "Connection dropped unexpectedly when trying to read.\n";
@@ -900,9 +966,7 @@ Please report any bugs or feature requests to "bug-net-sieve at rt.cpan.org", or
 
 =head1 AUTHOR
 
-Yves Agostini - Univ Metz <agostini@univ-metz.fr>
-
-L<http://www.crium.univ-metz.fr>
+Yves Agostini <yvesago@cpan.org>
 
 =head1 COPYRIGHT
 

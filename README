@@ -11,7 +11,7 @@ SYNOPSIS
         password => 'pass' ,
         );
 
-      foreach my $script ( $ServerSieve->list() ) {
+      foreach my $script ( $SieveServer->list() ) {
         print $script->{name}." ".$script->{status}."\n";
       };
 
@@ -62,7 +62,7 @@ CONSTRUCTOR
       Net::Sieve object which contain current open socket 
      Argument :
       server      : default localhost
-      port        : default sieve(2000) 
+      port        : default 2000 
       user        : default logname or $ENV{USERNAME} or $ENV{LOGNAME}
       password    :
       net_domain  :
@@ -72,6 +72,7 @@ CONSTRUCTOR
       authzid     : request authorisation to act as the specified id
       realm       : pass realm information to the authentication mechanism
       ssl_verif   : default 0x01, set 0x00 to don't verify and allow self-signed cerificate
+      notssl_verif: default 0x00, set 0x01 to don't verify and allow self-signed cerificate
       debug       : default 0, set 1 to have transmission logs
       dumptlsinfo : dump tls information
 
@@ -168,12 +169,10 @@ SUPPORT
     bug as I make changes.
 
 AUTHOR
-    Yves Agostini - Univ Metz <agostini@univ-metz.fr>
-
-    <http://www.crium.univ-metz.fr>
+    Yves Agostini <yvesago@cpan.org>
 
 COPYRIGHT
-    Copyright 2008-2011 Yves Agostini - <agostini@univ-metz.fr>
+    Copyright 2008-2012 Yves Agostini - <yvesago@cpan.org>
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
