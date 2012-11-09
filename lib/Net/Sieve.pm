@@ -233,23 +233,8 @@ $self->_parse_capabilities();
 
 $self->{_capa} = $raw_capabilities{SIEVE};
 
-# New problem: again, Cyrus timsieved. As of 2.3.13, it drops the
-# connection for an unknown command instead of returning NO. And
-# logs "Lost connection to client -- exiting" which is an interesting
-# way of saying "we dropped the connection". At this point, I give up
-# on protocol-deterministic checks and fall back to version checking.
-# Alas, Cyrus 2.2.x is still widely deployed because 2.3.x is the
-# development series and 2.2.x is officially the stable series.
-# This means that if they don't support NOOP by 2.3.14, I have to
-# figure out how to decide what is safe and backtrack which version
-# precisely was the first to send the capability response correctly.
-my $use_noop = 1;
-if (exists $capa{"IMPLEMENTATION"} and
-      $capa{"IMPLEMENTATION"} =~ /^Cyrus timsieved v2\.3\.(\d+)-/ and
-      $1 >= 13) {
-      _debug("--- Cyrus drops connection with dubious log msg if send NOOP, skip that");
-      $use_noop = 0;
-      }
+
+my $tls_bitlength = -1;
 
 if (exists $capa{STARTTLS}) {
         $self->ssend("STARTTLS");
@@ -259,7 +244,11 @@ if (exists $capa{STARTTLS}) {
                 my $e = IO::Socket::SSL::errstr();
                 die "STARTTLS promotion failed: $e\n";
         };
-        _debug("--- TLS activated here");
+         if (exists $main::{"Net::"} and exists $main::{"Net::"}{"SSLeay::"}) {
+            my $t = Net::SSLeay::get_cipher_bits($sock->_get_ssl_object(), 0);
+            $tls_bitlength = $t if defined $t and $t;
+        }
+        _debug("--- TLS activated here [$tls_bitlength bits]");
         if ($dump_tls_information) {
             print $sock->dump_peer_certificate();
             if ($DEBUGGING and
@@ -283,7 +272,23 @@ if (exists $capa{STARTTLS}) {
         # This at least is stably deterministic. However, from draft 10
         # onwards, NOOP is a registered available extension which returns
         # OK.
-
+        # New problem: again, Cyrus timsieved. As of 2.3.13, it drops the
+        # connection for an unknown command instead of returning NO. And
+        # logs "Lost connection to client -- exiting" which is an interesting
+        # way of saying "we dropped the connection". At this point, I give up
+        # on protocol-deterministic checks and fall back to version checking.
+        # Alas, Cyrus 2.2.x is still widely deployed because 2.3.x is the
+        # development series and 2.2.x is officially the stable series.
+        # This means that if they don't support NOOP by 2.3.14, I have to
+        # figure out how to decide what is safe and backtrack which version
+        # precisely was the first to send the capability response correctly.
+        my $use_noop = 1;
+        if (exists $capa{"IMPLEMENTATION"} and
+            $capa{"IMPLEMENTATION"} =~ /^Cyrus timsieved v2\.3\.(\d+)/ and
+            $1 >= 13) {
+            _debug("--- Cyrus drops connection with dubious log msg if send NOOP, skip that");
+            $use_noop = 0;
+        }
 
        if ($use_noop) {
         my $noop_tag = "STARTTLS-RESYNC-CAPA";
@@ -344,6 +349,9 @@ my $secflags = 'noanonymous';
 $secflags .= ' noplaintext' if $forbid_clearauth;
 my $authconversation = $sasl->client_new('sieve', $server, $secflags)
         or die "SASL conversation init failed (local problem): $!\n";
+if ($tls_bitlength > 0) {
+        $authconversation->property(externalssf => $tls_bitlength);
+}
 if (defined $realm) {
         $authconversation->property(realm => $realm);
 }
