@@ -1,5 +1,10 @@
 Revision history for Perl module Net::Sieve
 
+0.11 Fri, 09 Nov 2012 13:13:08 +0100
+    * fix cyrus 2.3 connection drop
+    * minor debug messages fixes
+    * add gnutls-cli example
+
 0.10 Tue, 06 Nov 2012 16:25:41 +0100
     * merge most of sieve-connect-0.83 (missing DNS SRV records and)
     * add example

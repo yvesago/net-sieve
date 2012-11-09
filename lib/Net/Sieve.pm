@@ -69,7 +69,7 @@ use MIME::Base64;
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.10';
+    $VERSION     = '0.11';
     @ISA         = qw(Exporter);
     #Give a hoot don't pollute, do not export more than needed by default
     @EXPORT      = qw();
@@ -91,7 +91,7 @@ my %capa_permit_empty = (
         return if exists $_[1]{STARTTLS};
         # We die because there's no way to authenticate.
         # Spec states that after STARTTLS SASL must be non-empty
-        closedie $_[0], "Empty SASL not permitted without STARTTLS\n";
+        warn "Empty SASL not permitted without STARTTLS\n";
         },
     SIEVE   => undef,
 );
@@ -233,6 +233,24 @@ $self->_parse_capabilities();
 
 $self->{_capa} = $raw_capabilities{SIEVE};
 
+# New problem: again, Cyrus timsieved. As of 2.3.13, it drops the
+# connection for an unknown command instead of returning NO. And
+# logs "Lost connection to client -- exiting" which is an interesting
+# way of saying "we dropped the connection". At this point, I give up
+# on protocol-deterministic checks and fall back to version checking.
+# Alas, Cyrus 2.2.x is still widely deployed because 2.3.x is the
+# development series and 2.2.x is officially the stable series.
+# This means that if they don't support NOOP by 2.3.14, I have to
+# figure out how to decide what is safe and backtrack which version
+# precisely was the first to send the capability response correctly.
+my $use_noop = 1;
+if (exists $capa{"IMPLEMENTATION"} and
+      $capa{"IMPLEMENTATION"} =~ /^Cyrus timsieved v2\.3\.(\d+)-/ and
+      $1 >= 13) {
+      _debug("--- Cyrus drops connection with dubious log msg if send NOOP, skip that");
+      $use_noop = 0;
+      }
+
 if (exists $capa{STARTTLS}) {
         $self->ssend("STARTTLS");
         $self->sget();
@@ -266,23 +284,6 @@ if (exists $capa{STARTTLS}) {
         # onwards, NOOP is a registered available extension which returns
         # OK.
 
-        # New problem: again, Cyrus timsieved. As of 2.3.13, it drops the
-        # connection for an unknown command instead of returning NO. And
-        # logs "Lost connection to client -- exiting" which is an interesting
-        # way of saying "we dropped the connection". At this point, I give up
-        # on protocol-deterministic checks and fall back to version checking.
-        # Alas, Cyrus 2.2.x is still widely deployed because 2.3.x is the
-        # development series and 2.2.x is officially the stable series.
-        # This means that if they don't support NOOP by 2.3.14, I have to
-        # figure out how to decide what is safe and backtrack which version
-        # precisely was the first to send the capability response correctly.
-        my $use_noop = 1;
-        if (exists $capa{"IMPLEMENTATION"} and
-          $capa{"IMPLEMENTATION"} =~ /^Cyrus timsieved v2\.3\.(\d+)\z/ and
-          $1 >= 13) {
-          debug("--- Cyrus drops connection with dubious log msg if send NOOP, skip that");
-          $use_noop = 0;
-          }
 
        if ($use_noop) {
         my $noop_tag = "STARTTLS-RESYNC-CAPA";
@@ -540,7 +541,7 @@ sub put
     $self->sget();
 
     unless (/^OK((?:\s.*)?)$/) {
-       warn "PUTSCRIPT(".$script->name.") failed: $_\n";
+       warn "PUTSCRIPT(".$name.") failed: $_\n";
     }
 
     return 1;
@@ -956,9 +957,16 @@ sub die_NOmsg
 I don't try plain text or client certificate authentication. 
 
 You can debug TLS connexion with openssl :
-   openssl s_client -connect your.server.org:2000 -tls1 -CApath /etc/apache/ssl.crt/somecrt.crt -starttls smtp
+
+   openssl s_client -connect your.server.org:2000 -tls1 -CApath /etc/apache/ssl.crt/somecrt.crt -starttls imap
 
 See response in C<Verify return code:>
+
+Or with gnutls-cli
+
+   gnutls-cli -s -p 4190 --crlf --insecure your.server.org
+
+Use Ctrl+D after STARTTLS to begin TLS negotiation
 
 =head1 SUPPORT
 

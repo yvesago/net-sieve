@@ -155,11 +155,17 @@ Minor public methods
 BUGS
     I don't try plain text or client certificate authentication.
 
-    You can debug TLS connexion with openssl : openssl s_client -connect
-    your.server.org:2000 -tls1 -CApath /etc/apache/ssl.crt/somecrt.crt
-    -starttls smtp
+    You can debug TLS connexion with openssl :
+
+       openssl s_client -connect your.server.org:2000 -tls1 -CApath /etc/apache/ssl.crt/somecrt.crt -starttls imap
 
     See response in "Verify return code:"
+
+    Or with gnutls-cli
+
+       gnutls-cli -s -p 4190 --crlf --insecure your.server.org
+
+    Use Ctrl+D after STARTTLS to begin TLS negotiation
 
 SUPPORT
     Please report any bugs or feature requests to "bug-net-sieve at
