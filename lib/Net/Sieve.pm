@@ -69,7 +69,7 @@ use MIME::Base64;
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.11';
+    $VERSION     = '0.12';
     @ISA         = qw(Exporter);
     #Give a hoot don't pollute, do not export more than needed by default
     @EXPORT      = qw();
@@ -391,7 +391,7 @@ if (defined $realm) {
                 if (/^"(.*)"\r?\n?$/) {
                         $challenge = $1;
                 } else {
-                        unless (/^{(\d+)\+?}\r?$/m) {
+                        unless (/^\{(\d+)\+?}\r?$/m) {
                                 $self->sfinish ( "*" );
                                 $self->closedie ("Failure to parse server SASL response.\n");
                         }
@@ -580,7 +580,7 @@ sub get
                 warn qq{Empty script "$name"?  Not saved.\n};
                 return 0;
         }
-        unless (/^{(\d+)\+?}\r?$/m) {
+        unless (/^\{(\d+)\+?}\r?$/m) {
                 die "QUIT:Failed to parse server response to GETSCRIPT";
         }
         my $contentdata = $_;
@@ -589,7 +589,7 @@ sub get
         unless (/^OK((?:\s.*)?)$/) { 
                 die_NOmsg($_, "Script retrieval not successful, not saving");
         }
-        $contentdata =~ s/^{\d+\+?}\r?\n?//m;
+        $contentdata =~ s/^\{\d+\+?}\r?\n?//m;
         
     return $contentdata;
 }
@@ -986,7 +986,7 @@ Yves Agostini <yvesago@cpan.org>
 
 =head1 COPYRIGHT
 
-Copyright 2008-2012 Yves Agostini - <yvesago@cpan.org>
+Copyright 2008-2017 Yves Agostini - <yvesago@cpan.org>
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
